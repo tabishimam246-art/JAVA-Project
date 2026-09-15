@@ -1,0 +1,827 @@
+import java.util.Scanner;
+
+/* ================= MAIN ================= */
+class Main {
+
+    static Scanner sc = new Scanner(System.in);
+    static Admin admin;
+    static int loggedIn = -1;
+
+    public static void main(String[] args) {
+
+        System.out.print("Enter number of accounts system can store : ");
+        int size = sc.nextInt(); sc.nextLine();
+        admin = new Admin(size);
+
+        if (loggedIn == -1) {
+            mainMenu();
+        }
+        else {
+            userMenu();
+        }
+
+        /*while (true) {
+            if (loggedIn == -1) {
+                mainMenu();
+            }
+            else {
+                userMenu();
+            }
+        }*/
+    }
+
+    static void mainMenu() {
+        System.out.println("\n--- UPI SYSTEM ---");
+        System.out.println("1. Create Account (Admin)");
+        System.out.println("2. Generate UPI (Admin)");
+        System.out.println("3. Block/Unblock Account (Admin)");
+        System.out.println("4. Login");
+        System.out.println("0. Exit");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        switch (ch) {
+            case 1 -> {
+                admin.createAccount(sc);
+            }
+
+            case 2 -> {
+                admin.generateUpi(sc);
+            }
+
+            case 3 -> {
+                admin.blockUnblock(sc);
+            }
+
+            case 4 -> {
+                login();
+            }
+
+            case 0 -> {
+                System.exit(0);
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+        mainMenu();
+    }
+
+    static void userMenu() {
+        if(loggedIn == -1) {
+            mainMenu();
+        }
+        User u = admin.users[loggedIn];
+
+        System.out.println("\nWelcome " + u.name);
+        System.out.println("1. Check Balance");
+        System.out.println("2. Send Money");
+        System.out.println("3. Recharge and Bills");
+        System.out.println("4. Transaction History");
+        System.out.println("5. Logout");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        switch (ch) {
+            case 1 -> {
+                System.out.println("Balance: ₹" + u.account.balance);
+            }
+
+            case 2 -> {
+                sendMoney();
+            }
+
+            case 3 -> {
+                rechargeAndBills();
+            }
+
+            case 4 -> {
+                showHistory();
+            }
+
+            case 5 -> {
+                loggedIn = -1;
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+        if (loggedIn == -1) {
+            mainMenu();
+        }
+        else {
+            userMenu();
+        }
+    }
+
+    static void login() {
+        System.out.print("Mobile : ");
+        String mob = sc.nextLine();
+        System.out.print("PIN : ");
+        String pin = sc.nextLine();
+
+        for (int i = 0; i < admin.count; i++) {
+            User u = admin.users[i];
+
+            if (u.mobile.equals(mob) && u.upi != null) {
+
+                if (u.account.blocked) {
+                    System.out.println("Account is blocked!");
+                    return;
+                }
+
+                if (u.upi.pin.equals(pin)) {
+                    u.upi.wrongAttempts = 0;
+                    loggedIn = i;
+                    System.out.println("Login Successful!");
+                    userMenu();
+                    return;
+                } else {
+                    u.upi.wrongAttempts++;
+                    System.out.println("Wrong PIN Attempt: " + u.upi.wrongAttempts);
+
+                    if (u.upi.wrongAttempts == 3) {
+                        u.account.blocked = true;
+                        System.out.println("Account blocked due to 3 wrong attempts!");
+                    }
+                    return;
+                }
+            }
+        }
+
+        System.out.println("Invalid login");
+        mainMenu();
+        /*if(loggedIn != -1) {
+            userMenu();
+        } else {
+            mainMenu();
+        }*/
+    }
+
+    static void rechargeAndBills() {
+        System.out.println("----Recharge and Bills----");
+        System.out.println("Recharges : ");
+        System.out.println("1. Mobile Recharge");
+        System.out.println("2. Fastag Recharge");
+        System.out.println("3. DTH");
+        System.out.println("4. International Roaming");
+        System.out.println("Utilities");
+        System.out.println("5. Electricity");
+        System.out.println("6. Book Cylinder");
+        System.out.println("7. Piped Gas");
+        System.out.println("8. Water");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        switch (ch) {
+            case 1 -> {
+                recharge();
+            }
+            case 2 -> {
+                FASTagRecharge();
+            }
+            case 3 -> {
+                DTH();
+            }
+            case 4 -> {
+                internationalRoaming();
+            }
+            case 5 -> {
+                electricityBill();
+            }
+            case 6 -> {
+                bookCylinder();
+            }
+            case 7 -> {
+                pipedGasBill();
+            }
+            case 8 -> {
+                waterBill();
+            }
+        }
+    }
+
+    static void sendMoney() {
+        User sender = admin.users[loggedIn];
+
+        System.out.print("Receiver UPI: ");
+        String to = sc.nextLine();
+        System.out.print("Amount: ");
+        double amt = sc.nextDouble();
+        sc.nextLine();
+
+        int receiver = -1;
+        for (int i = 0; i < admin.count; i++) {
+            if (admin.users[i].upi != null && admin.users[i].upi.upiId.equals(to)) {
+                receiver = i;
+            }
+        }
+
+        if (receiver == -1) {
+            System.out.println("Receiver not found");
+            return;
+        }
+
+        if (sender.account.balance < amt) {
+            System.out.println("Insufficient Balance");
+            return;
+        }
+
+        sender.account.balance -= amt;
+        admin.users[receiver].account.balance += amt;
+
+        sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, to, amt);
+
+        System.out.println("Payment Successful!");
+    }
+
+    static void showHistory() {
+        User u = admin.users[loggedIn];
+
+        if (u.txnCount == 0) {
+            System.out.println("No transactions");
+            return;
+        }
+
+        for (int i = 0; i < u.txnCount; i++) {
+            Transaction t = u.history[i];
+            System.out.println(t.from + " -> " + t.to + " ₹" + t.amount);
+        }
+    }
+
+    static void recharge() {
+        User sender = admin.users[loggedIn];
+
+        String mob;
+
+        boolean valid = true;
+        do {
+            System.out.println("----------MOBILE RECHARGE----------");
+            System.out.print("Enter Mobile Number: ");
+            mob = sc.nextLine();
+
+            if(mob.length() == 10) {
+                for(int i=0; i<mob.length(); i++) {
+                    if(mob.charAt(i) >= '0' && mob.charAt(i) <= '9') {
+                        valid = false;
+                    } else {
+                        valid = true;
+                        break;
+                    }
+                }
+                if(valid) {
+                    System.out.println("Please enter a valid mobile number");
+                }
+            } else {
+                System.out.println("Please enter a valid mobile number");
+            }
+
+        } while(valid);
+
+        System.out.println("Pack Info:");
+        System.out.println("1. ₹249[1.5 GB/day for 28 days || Truly Unlimited Calls || 100 SMS/day]");
+        System.out.println("2. ₹479[1.5 GB/day for 56 days || Truly Unlimited Calls || 100 SMS/day]");
+        System.out.println("3. ₹799[1.5 GB/day for 84 days || Truly Unlimited Calls || 100 SMS/day]");
+        System.out.println("4. ₹2199[1.5 GB/day for 365 days || Truly Unlimited Calls || 100 SMS/day]");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        double recharge = 0;
+
+        System.out.println("Enter your PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            switch(ch) {
+                case 1 -> {
+                    recharge = 249;
+                }
+
+                case 2 -> {
+                    recharge = 479;
+                }
+
+                case 3 -> {
+                    recharge = 799;
+                }
+
+                case 4 -> {
+                    recharge = 2199;
+                }
+
+                default -> {
+                    System.out.println("Please select from the above mentioned packs!");
+                }
+            }
+
+            if (sender.account.balance < recharge) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= recharge;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "Recharge to Mobile No : "+mob, recharge);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+    static void FASTagRecharge() {
+        User sender = admin.users[loggedIn];
+
+        System.out.println("----------FASTAG RECHARGE----------");
+        System.out.println("Enter your FASTag Provider Name : ");
+        String fasTagName = sc.nextLine();
+
+        boolean valid = true;
+        do {
+            System.out.println("Enter Vehicle Number : ");
+            String vehicle = sc.nextLine();
+            if(vehicle.length() == 10) {
+                for(int i=0; i<2; i++) {
+                    if(vehicle.charAt(i) >= 'A' && vehicle.charAt(i) <= 'Z') {
+                        valid = false;
+                    }
+                }
+                for(int i=2; i<4; i++) {
+                    if(vehicle.charAt(i) >= '0' && vehicle.charAt(i) <= '9') {
+                        valid = false;
+                    }
+                }
+                for(int i=4; i<6; i++) {
+                    if(vehicle.charAt(i) >= 'A' && vehicle.charAt(i) <= 'Z') {
+                        valid = false;
+                    }
+                }
+                for(int i=6; i<10; i++) {
+                    if(vehicle.charAt(i) >= '0' && vehicle.charAt(i) <= '9') {
+                        valid = false;
+                    }
+                }
+                if(valid) {
+                    System.out.println("Invalid Vehicle Number!!");
+                }
+            } else {
+                System.out.println("Invalid Vehicle Number!!");
+            }
+        } while(valid);
+
+        System.out.println("Plan Info:");
+        System.out.println("1. ₹249 [1 Month Plan]");
+        System.out.println("2. ₹749 [3 Months Plan]");
+        System.out.println("3. ₹1499 [6 Months Plan]");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        double fasTagRecharge = 0;
+
+        System.out.println("Enter your PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            switch(ch) {
+                case 1 -> {
+                    fasTagRecharge = 249;
+                }
+
+                case 2 -> {
+                    fasTagRecharge = 749;
+                }
+
+                case 3 -> {
+                    fasTagRecharge = 1499;
+                }
+
+                default -> {
+                    System.out.println("Please select from the above mentioned options!");
+                }
+            }
+            if (sender.account.balance < fasTagRecharge) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= fasTagRecharge;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "FasTag Recharge to  : " + fasTagName, fasTagRecharge);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+    static void DTH() {
+        User sender = admin.users[loggedIn];
+
+        System.out.println("----------DTH----------");
+        System.out.println("Select DTH Provider : ");
+        System.out.println("1. Bhartel Digital TV");
+        System.out.println("2. Dish TV");
+        System.out.println("3. Moon Direct");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        String dthName = "";
+
+        switch(ch) {
+            case 1 -> {
+                dthName = "Bhartel Digital TV";
+            }
+
+            case 2 -> {
+                dthName = "Dish TV";
+            }
+
+            case 3 -> {
+                dthName = "Moon Direct";
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+
+        System.out.println("Enter Subscriber ID : ");
+        String subscriberID = sc.nextLine();
+
+        System.out.println("Plan Info:");
+        System.out.println("1. ₹499 [28 days Plan]");
+        System.out.println("2. ₹1499 [56 days Plan]");
+        System.out.println("3. ₹5999 [365 days Plan]");
+
+        int plan = sc.nextInt();
+        sc.nextLine();
+
+        double dthRecharge = 0;
+
+        switch(plan) {
+            case 1 -> {
+                dthRecharge = 499;
+            }
+
+            case 2 -> {
+                dthRecharge = 1499;
+            }
+
+            case 3 -> {
+                dthRecharge = 5999;
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned plans!");
+            }
+        }
+
+        System.out.println("Enter your PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            if (sender.account.balance < dthRecharge) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= dthRecharge;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "DTH Recharge to  : " + dthName, dthRecharge);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+    static void internationalRoaming() {
+        User sender = admin.users[loggedIn];
+
+        String mob;
+
+        boolean valid = true;
+        do {
+            System.out.println("----------INTERNATIONAL ROAMING----------");
+            System.out.print("Enter Mobile Number : ");
+            mob = sc.nextLine();
+            if(mob.length() == 10) {
+                for(int i=0; i<mob.length(); i++) {
+                    if(mob.charAt(i) >= '0' && mob.charAt(i) <= '9') {
+                        valid = false;
+                    } else {
+                        valid = true;
+                        break;
+                    }
+                }
+                if(valid) {
+                    System.out.println("Please enter a valid mobile number");
+                }
+            } else {
+                System.out.println("Please enter a valid mobile number");
+            }
+
+        } while(valid);
+
+        System.out.println("IR Pack Info : ");
+        System.out.println("1. ₹798[2 GB || 150 min calls || 20 SMS free || 5-days validity]");
+        System.out.println("2. ₹1098[3 GB || 200 min calls || 20 SMS free || 10-days validity}");
+        System.out.println("3. ₹2998[10 GB || 300 min calls || 20 SMS free || 30-days validity]");
+        System.out.println("4. ₹4000[5 GB || 100 min calls || 100 SMS free || 365-days validity]");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        double recharge = 0;
+
+        System.out.println("Enter PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            switch(ch) {
+                case 1 -> {
+                    recharge = 798;
+                }
+
+                case 2 -> {
+                    recharge = 1098;
+                }
+
+                case 3 -> {
+                    recharge = 2998;
+                }
+
+                case 4 -> {
+                    recharge = 4000;
+                }
+
+                default -> {
+                    System.out.println("Please select from the above mentioned packs!");
+                }
+            }
+
+            if (sender.account.balance < recharge) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= recharge;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "Recharge to Mobile No : "+mob, recharge);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+    static void electricityBill() {
+        User sender = admin.users[loggedIn];
+
+        System.out.println("----------ELECTRICITY----------");
+        System.out.println("Select Electricity Provider : ");
+        System.out.println("1. Torrent Power");
+        System.out.println("2. India Power");
+        System.out.println("3. Central Power");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        String elecName = "";
+
+        switch(ch) {
+            case 1 -> {
+                elecName = "Torrent Power";
+            }
+
+            case 2 -> {
+                elecName = "India Power";
+            }
+
+            case 3 -> {
+                elecName = "Central Power";
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+
+        System.out.println("Enter Electricity ID : ");
+        String elecId = sc.nextLine();
+        System.out.println("Enter Bill Amount : ");
+        double elecBill = sc.nextDouble();
+        sc.nextLine();
+
+        System.out.println("Enter PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            if (sender.account.balance < elecBill) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= elecBill;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "Electricity Bill Paid to : "+elecName, elecBill);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+    static void bookCylinder() {//flushing problem
+        User sender = admin.users[loggedIn];
+
+        System.out.println("----------BOOK LPG CYLINDER----------");
+        System.out.println("Select Your LPG Gas Provider");
+        System.out.println("1. Bharat Gas");
+        System.out.println("2. AP Gas");
+        System.out.println("3. Central Gas");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        String gasCylinderName = "";
+
+        switch(ch) {
+            case 1 -> {
+                gasCylinderName = "Bharat Gas";
+            }
+
+            case 2 -> {
+                gasCylinderName = "AP Gas";
+            }
+
+            case 3 -> {
+                gasCylinderName = "Central Gas";
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+
+        System.out.println("Enter LPG ID : ");
+        String lpgId = sc.nextLine();
+        double lpgCylinderPrice = 860;
+        boolean valid = true;
+        String registeredMob;
+        do {
+            System.out.print("Enter Registered Mobile Number: ");
+            registeredMob = sc.nextLine();
+            if(registeredMob.length() == 10) {
+                for(int i=0; i<registeredMob.length(); i++) {
+                    if(registeredMob.charAt(i) >= '0' && registeredMob.charAt(i) <= '9') {
+                        valid = false;
+                    } else {
+                        valid = true;
+                        break;
+                    }
+                }
+                if(valid) {
+                    System.out.println("Please enter a valid mobile number");
+                }
+            } else {
+                System.out.println("Please enter a valid mobile number");
+            }
+
+        } while(valid);
+
+        System.out.println("LPG Cylinder Price : "+lpgCylinderPrice);
+
+        System.out.println("Enter your PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            if (sender.account.balance < lpgCylinderPrice) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= lpgCylinderPrice;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "Gas Cylinder Bill Paid to : "+gasCylinderName, lpgCylinderPrice);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+    }
+
+    static void pipedGasBill() {
+        User sender = admin.users[loggedIn];
+
+        System.out.println("----------PIPED GAS----------");
+        System.out.println("Select Piped Gas Provider : ");
+        System.out.println("1. Torrent Gas");
+        System.out.println("2. India Gas");
+        System.out.println("3. Central Gas");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        String pipedGasProviderName = "";
+
+        switch(ch) {
+            case 1 -> {
+                pipedGasProviderName = "Torrent Gas";
+            }
+
+            case 2 -> {
+                pipedGasProviderName = "India Gas";
+            }
+
+            case 3 -> {
+                pipedGasProviderName = "Central Gas";
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+
+        System.out.println("Enter Consumer ID : ");
+        String pipedGasId = sc.nextLine();
+        System.out.println("Enter Bill Amount : ");
+        double pipedGasBill = sc.nextDouble();
+        sc.nextLine();
+
+        System.out.println("Enter PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            if (sender.account.balance < pipedGasBill) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= pipedGasBill;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "Piped Gas Bill Paid to : "+pipedGasProviderName, pipedGasBill);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+    static void waterBill() {
+        User sender = admin.users[loggedIn];
+
+        System.out.println("----------WATER----------");
+        System.out.println("Select Water Provider");
+        System.out.println("1. Gujarat Water");
+        System.out.println("2. India Water");
+        System.out.println("3. Torrent Water");
+
+        int ch = sc.nextInt();
+        sc.nextLine();
+
+        String waterProviderName = "";
+
+        switch(ch) {
+            case 1 -> {
+                waterProviderName = "Gujarat Water";
+            }
+
+            case 2 -> {
+                waterProviderName = "India Water";
+            }
+
+            case 3 -> {
+                waterProviderName = "Torrent Water";
+            }
+
+            default -> {
+                System.out.println("Please select from the above mentioned options!");
+            }
+        }
+
+        System.out.println("Enter Consumer ID : ");
+        String waterId = sc.nextLine();
+        System.out.println("Enter Bill Amount : ");
+        double waterBill = sc.nextDouble();
+        sc.nextLine();
+
+        System.out.println("Enter your PIN : ");
+        String pin = sc.nextLine();
+
+        if(sender.upi.pin.equals(pin)) {
+            if (sender.account.balance < waterBill) {
+                System.out.println("Insufficient Balance");
+                return;
+            }
+            sender.account.balance -= waterBill;
+            sender.history[sender.txnCount++] = new Transaction(sender.upi.upiId, "Water Bill Paid to : "+waterProviderName, waterBill);
+            System.out.println("Transaction Successful!");
+
+        } else {
+            System.out.println("Transaction Failed!");
+        }
+
+    }
+
+}

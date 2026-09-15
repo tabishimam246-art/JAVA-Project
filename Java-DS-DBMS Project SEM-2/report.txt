@@ -1,0 +1,30 @@
+------------------------------------------------------
+                LOG STATISTICAL REPORT                
+------------------------------------------------------
+
+--------------- COUNT BY EXCEPTION --------------------
+ArithmeticException -> 6
+SQLException -> 5
+DiskSpaceWarning -> 5
+ClassNotFoundException -> 4
+IllegalArgumentException -> 3
+AuthenticationException -> 3
+SocketTimeoutException -> 3
+NumberFormatException -> 2
+FileNotFoundException -> 2
+StackOverflowError -> 2
+OutOfMemoryError -> 2
+ArrayIndexOutOfBoundsException -> 1
+
+--------------- COUNT BY SEVERITY --------------------
+INFO -> 20
+ERROR -> 20
+WARNING -> 14
+FATAL -> 4
+
+--------------- TOP EXCEPTION TYPES --------------------
+ArithmeticException -> 6
+SQLException -> 5
+DiskSpaceWarning -> 5
+ClassNotFoundException -> 4
+IllegalArgumentException -> 3
